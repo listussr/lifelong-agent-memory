@@ -1,0 +1,72 @@
+seed: 0
+seeds: [0, 1, 2, 3, 4]
+
+env:
+  n_projects: 8
+  n_situations: 6
+  n_topics: 8
+  n_candidates: 3
+
+  variants_per_body: 16         # разных тел на пару (ситуация, тема)
+  context_frames_per_text: 3    # количество контекстных рамок для мусора в тексте
+  n_steps: 600                  # длина одного потока
+  alphas: [0.0, 0.5, 1.0]       # флаг для случайного контекста в репозитории
+  eta: 0.0                      # шум обратной связи в основном прогоне
+
+encoder:
+  name: sentence-transformers/all-MiniLM-L6-v2
+  dim: 384
+  batch_size: 256
+  device: cpu #cuda
+  normalize: true
+
+pool:
+  dir: data/
+  texts: pool_texts.json
+  meta: pool_meta.npy
+  emb: pool_emb.npy
+  index: pool_index.json
+
+memory:
+  budget: 64                    # слотов хранения; ОДИНАКОВ у всех политик
+  k: 8                          # сколько извлекается
+  budget_sweep: [16, 64, 256]   # только при alpha = 0
+  same_situation_only: true
+  kmeans_clusters: 8
+  kmeans_refit_every: 50        # шагов между пересчётами кластеров
+
+metric:
+  dim_out: 64
+  lr: 1.0e-3
+  steps: 500
+  batch_size: 256
+  margin: 0.2
+  train_episodes: 50
+
+eviction:
+  n_neighbors: 3                # по скольким соседям считать согласие
+
+head:
+  d_model: 128
+  n_layers: 2
+  n_heads: 4
+  ff_mult: 4
+  dropout: 0.1
+  norm_first: true
+  positional_encoding: false
+  lr: 3.0e-4
+  batch_size: 256
+  epochs: 4
+  train_episodes: 200
+  eval_episodes: 20
+  mixture_policies: [random, recency, semantic, oracle]
+
+hypothesis:
+  alpha: 0.0
+  etas: [0.0, 0.1, 0.2, 0.3, 0.4]
+
+output:
+  results_dir: results/scv
+  figures_dir: results/images
+  main_csv: results/main.csv
+  hypothesis_csv: results/hypothesis.csv
