@@ -28,9 +28,9 @@ pool:
   index: pool_index.json
 
 memory:
-  budget: 64                    # слотов хранения; ОДИНАКОВ у всех политик
-  k: 8                          # сколько извлекается
-  budget_sweep: [16, 64, 256]   # только при alpha = 0
+  budget: 192
+  k: 8
+  budget_sweep: [48, 96, 192, 384]   # только при alpha = 0
   same_situation_only: true
   kmeans_clusters: 8
   kmeans_refit_every: 50        # шагов между пересчётами кластеров
@@ -66,7 +66,7 @@ hypothesis:
   etas: [0.0, 0.1, 0.2, 0.3, 0.4]
 
 output:
-  results_dir: results/scv
+  results_dir: results/csv
   figures_dir: results/images
-  main_csv: results/main.csv
-  hypothesis_csv: results/hypothesis.csv
+  main_csv: results/csv/main.csv
+  hypothesis_csv: results/csv/hypothesis.csv
