@@ -38,7 +38,8 @@ memory:
 metric:
   dim_out: 64
   lr: 1.0e-3
-  steps: 500
+  epochs: 1000
+  neg_weight: 1.0
   batch_size: 256
   margin: 0.2
   train_episodes: 50

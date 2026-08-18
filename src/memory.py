@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.cluster import KMeans as SKKMeans
 
 from .utils import NP_RNG
+from . import CONFIG
 
 
 @dataclass(frozen=True)
@@ -266,6 +267,53 @@ class Oracle(MemoryPolicy):
     def _select(self, query_emb: np.ndarray, cand: List[Item], k: int) -> List[Item]:
         raise NotImplementedError("Oracle переопределяет retrieve целиком")
 
+class DecisionEviction(Semantic):
+    """
+    Вытеснение записей на границе забывания.
+    ---
+
+    Удаляется запись с наибольшей долей согласных соседей.
+    """
+
+    def __init__(self, budget: int, emb: np.ndarray, n_neighbours: Optional[int] = None):
+        """
+        Args:
+            budget (int): Бюджет памяти.
+            emb (np.ndarray): Пул эмбеддингов; исходный или спроецированный.
+            n_neighbours (Optional[int]): По скольким соседям считать согласие.
+        """
+        super().__init__(budget, emb)
+        self.n_neighbours = (CONFIG["eviction"]["n_neighbors"] if n_neighbours is None else n_neighbours)
+
+    def _evict(self) -> None:
+        situation = self.items[-1].situation
+        idx = [n for n, it in enumerate(self.items) if it.situation == situation]
+
+        n_nb = min(self.n_neighbours, len(idx) - 1)
+        if n_nb < 1:
+            self.items.pop(0)               # соседей нет
+            return
+
+        E = self.emb[[self.items[n].text_id for n in idx]]
+        C = E @ E.T                          # косинусные сходства внутри пула
+        np.fill_diagonal(C, -np.inf)         # запись не может быть себе соседом
+
+        neighbours = np.argsort(-C, axis=1)[:, :n_nb]
+        actions    = np.array([self.items[n].revealed_action for n in idx])
+        agreement  = (actions[neighbours] == actions[:, None]).mean(axis=1)
+
+        # запись с самой большой долей соседей с идентичным решением
+        best = np.where(agreement == agreement.max())[0]
+
+        # при равенстве выбор из самой крупной по действию группы
+        if len(best) > 1:
+            counts = {int(a): int((actions == a).sum()) for a in np.unique(actions[best])}
+            top    = max(counts.values())
+            best   = np.array([b for b in best if counts[int(actions[b])] == top])
+
+        # при равенстве удаляется самая старая из выбранных
+        self.items.pop(idx[int(best.min())])
+
 
 def make_policy(name: str, budget: int, emb: np.ndarray, meta: np.ndarray, 
                 rng: NP_RNG, n_clusters: int = 8, refit_every: int = 50,
@@ -296,4 +344,6 @@ def make_policy(name: str, budget: int, emb: np.ndarray, meta: np.ndarray,
         return FeatureKMeans(budget, emb, n_clusters, refit_every, seed)
     if name == "oracle":
         return Oracle(budget, emb, meta)
+    if name == "eviction":
+        return DecisionEviction(budget, emb)
     raise ValueError(f"неизвестная политика: {name}")
